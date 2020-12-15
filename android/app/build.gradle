@@ -1,4 +1,5 @@
 apply plugin: "com.android.application"
+apply plugin: 'com.google.gms.google-services'
 
 import com.android.build.OutputFile
 
@@ -181,6 +182,13 @@ android {
 }
 
 dependencies {
+    // Import the BoM for the Firebase platform
+    //implementation platform('com.google.firebase:firebase-bom:26.1.1')
+
+    // Declare the dependency for the Firebase Authentication library
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'androidx.browser:browser:1.2.0'
+
     implementation fileTree(dir: "libs", include: ["*.jar"])
     //noinspection GradleDynamicVersion
     implementation "com.facebook.react:react-native:+"  // From node_modules
