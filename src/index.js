@@ -1,3 +1,7 @@
+// To make phone authentication work without using reCAPTCHA
+// Enable your current Project's Android device verification in
+// google cloud console.
+// Follow rest steps on https://firebase.google.com/docs/auth/android/phone-auth
 import React from 'react';
 import {
   View,
