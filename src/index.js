@@ -33,6 +33,7 @@ export default class App extends React.Component {
         .auth()
         .signInWithPhoneNumber(this.state.phone)
         .then((confirmResult) => {
+          console.log(confirmResult);
           this.setState({confirmResult});
         })
         .catch((error) => {
@@ -68,6 +69,7 @@ export default class App extends React.Component {
       alert('Please enter a 6 digit OTP code.');
     }
   };
+
   renderConfirmationCodeView = () => {
     return (
       <View style={styles.verificationView}>
@@ -127,40 +129,10 @@ export default class App extends React.Component {
   }
 }
 
-// <>
-//   <View style={styles.container}>
-//     <Text style={styles.title}>LOGIN</Text>
-//     <Text>Phone number</Text>
-//     <TextInput
-//       style={styles.textinput}
-//       keyboardType="phone-pad"
-//       onChangeText={(text) => this.onChangeText(text)}
-//     />
-//
-//     <Button title="Send" onPress={() => this.PhoneSignIn()} />
-//
-//     <Text style={{marginTop: 20}}>OTP</Text>
-//     <TextInput
-//       style={styles.textinput}
-//       keyboardType="number-pad"
-//       value={this.state.code}
-//       onChangeText={(text) => setCode(text)}
-//     />
-//     <Button style={{marginTop: 20}} title="Resend OTP" />
-//     <Button title="Confirm Code" onPress={() => cthis.onfirmCode()} />
-//
-//     <Pressable
-//       style={styles.login}
-//       onPress={() => console.log('Login pressed')}>
-//       <Text style={{fontSize: 20}}>Login</Text>
-//     </Pressable>
-//   </View>
-// </>
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#aaa',
+    // backgroundColor: '#aaa',
   },
   page: {
     flex: 1,
@@ -170,7 +142,6 @@ const styles = StyleSheet.create({
   textInput: {
     marginTop: 20,
     width: '90%',
-    height: 40,
     borderColor: '#555',
     borderWidth: 2,
     borderRadius: 5,
@@ -189,8 +160,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   themeButtonTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
     color: '#fff',
   },
   verificationView: {
