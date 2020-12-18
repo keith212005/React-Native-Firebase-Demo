@@ -1,174 +1,246 @@
-// To make phone authentication work without using reCAPTCHA
-// Enable your current Project's Android device verification in
-// google cloud console.
-// Follow rest steps on https://firebase.google.com/docs/auth/android/phone-auth
-import React from 'react';
+// npm install react-native-otp-verify --save
+
+import React, {Component} from 'react';
 import {
   View,
+  Button,
   Text,
   TextInput,
+  Image,
   StyleSheet,
-  Button,
+  Keyboard,
+  Alert,
   Pressable,
-  SafeAreaView,
-  TouchableOpacity,
 } from 'react-native';
 
 import firebase from '@react-native-firebase/app';
 import auth from '@react-native-firebase/auth';
+import RNOtpVerify from 'react-native-otp-verify';
 
-export default class App extends React.Component {
-  state = {
-    phone: '+918160626880',
-    confirmResult: null,
-    verificationCode: '',
-    userId: '',
-  };
+const successImageUri =
+  'https://cdn.pixabay.com/photo/2015/06/09/16/12/icon-803718_1280.png';
 
-  validatePhoneNumber = () => {
-    var regexp = /^\+[0-9]?()[0-9](\s|\S)(\d[0-9]{8,16})$/;
-    return regexp.test(this.state.phone);
-  };
+export default class App extends Component {
+  constructor(props) {
+    super(props);
+    this.unsubscribe = null;
+    this.state = {
+      user: null,
+      message: '',
+      otpInput: '',
+      phoneNumber: '+918160626881',
+      confirmResult: null,
+    };
+  }
 
-  handleSendCode = () => {
-    // Request to send OTP
-    if (this.validatePhoneNumber()) {
-      firebase
-        .auth()
-        .signInWithPhoneNumber(this.state.phone)
-        .then((confirmResult) => {
-          console.log(confirmResult);
-          this.setState({confirmResult});
-        })
-        .catch((error) => {
-          alert(error.message);
-
-          console.log(error);
+  componentDidMount() {
+    this.unsubscribe = firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        console.log('userdata >>>>>>>>>>>>>>> ', user.toJSON());
+        this.setState({user: user.toJSON()});
+      } else {
+        // User has been signed out, reset the state
+        this.setState({
+          user: null,
+          message: '',
+          otpInput: '',
+          phoneNumber: '+918160626881',
+          confirmResult: null,
         });
+      }
+    });
+  }
+
+  componentWillUnmount() {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+    RNOtpVerify.removeListener();
+  }
+
+  startListeningForOtp = () =>
+    RNOtpVerify.getOtp()
+      .then((p) => RNOtpVerify.addListener(this.otpHandler))
+      .catch((p) => console.log(p));
+
+  otpHandler = (message) => {
+    Alert.alert('abcd>>>>>>>>>', message);
+
+    if (message === 'Timeout Error.') {
+      Alert.alert('Error', message);
+      RNOtpVerify.removeListener();
     } else {
-      alert('Invalid Phone Number');
+      console.log('message>>>>', message);
+      const otp = /(\d{6})/g.exec(message)[1];
+      console.log('otp>>>>', otp);
+      this.setState({otpInput: otp});
+      RNOtpVerify.removeListener();
     }
   };
 
-  changePhoneNumber = () => {
-    this.setState({confirmResult: null, verificationCode: ''});
+  signIn = () => {
+    this.startListeningForOtp();
+    const {phoneNumber} = this.state;
+    this.setState({
+      message: 'Sending code ...',
+    });
+
+    firebase
+      .auth()
+      .signInWithPhoneNumber(phoneNumber)
+      .then((confirmResult) => {
+        console.log('confirmResult>>>>>>  ', JSON.stringify(confirmResult));
+        this.setState({
+          confirmResult,
+          message: 'Code has been sent!',
+        });
+      })
+      .catch((error) =>
+        this.setState({
+          message: `Sign In With Phone Number Error: ${error.message}`,
+        }),
+      );
   };
 
-  handleVerifyCode = () => {
-    // Request for OTP verification
-    const {confirmResult, verificationCode} = this.state;
-    if (verificationCode.length == 6) {
+  confirmCode = () => {
+    const {otpInput, confirmResult} = this.state;
+
+    if (confirmResult && otpInput.length) {
       confirmResult
-        .confirm(verificationCode)
+        .confirm(otpInput)
         .then((user) => {
-          console.log('user.user.uid >>>>>> ', user.user.uid);
-          this.setState({userId: user.user.uid});
-          alert(`Verified! ${user.user.uid}`);
+          console.log(user);
+          Alert.alert('Success', 'Code confirmed');
+          this.setState({message: 'Code Confirmed!'});
+          RNOtpVerify.removeListener();
         })
         .catch((error) => {
-          alert(error.message);
           console.log(error);
+          Alert.alert('Error', error.toString());
+          this.setState({
+            message: `Code Confirm Error: ${error.message}`,
+          });
+          RNOtpVerify.removeListener();
         });
-    } else {
-      alert('Please enter a 6 digit OTP code.');
     }
   };
 
-  renderConfirmationCodeView = () => {
+  signOut = () => {
+    firebase.auth().signOut();
+  };
+
+  renderPhoneNumberInput() {
+    const {phoneNumber} = this.state;
+
     return (
-      <View style={styles.verificationView}>
+      <View style={styles.container}>
+        <Text>Enter phone number:</Text>
         <TextInput
-          style={styles.textInput}
-          placeholder="Verification code"
-          placeholderTextColor="#eee"
-          value={this.state.verificationCode}
-          keyboardType="numeric"
-          onChangeText={(verificationCode) => {
-            this.setState({verificationCode});
-          }}
-          maxLength={6}
+          keyboardType="phone-pad"
+          autoFocus
+          style={styles.phoneinput}
+          onChangeText={(value) => this.setState({phoneNumber: value})}
+          value={phoneNumber}
         />
-        <TouchableOpacity
-          style={[styles.themeButton, {marginTop: 20}]}
-          onPress={this.handleVerifyCode}>
-          <Text style={styles.themeButtonTitle}>Verify Code</Text>
-        </TouchableOpacity>
+        <Button title="Sign In" color="green" onPress={this.signIn} />
       </View>
     );
-  };
+  }
+
+  renderMessage() {
+    if (!this.state.message.length) {
+      return null;
+    }
+    return <Text style={styles.msg}>{this.state.message}</Text>;
+  }
+
+  renderVerificationotpInput() {
+    const {user} = this.state;
+    return (
+      <View style={styles.container}>
+        <Text>Enter verification code below:</Text>
+        <TextInput
+          keyboardType="phone-pad"
+          style={styles.phoneinput}
+          onChangeText={(value) => this.setState({otpInput: value})}
+          placeholder={'Code ... '}
+          value={this.state.otpInput}
+        />
+        <Pressable style={styles.resendBtn} onPress={() => this.signIn()}>
+          <Text style={styles.resendotp}>Resend OTP</Text>
+        </Pressable>
+
+        <Pressable style={styles.resendBtn} onPress={() => this.confirmCode()}>
+          <Text style={styles.resendotp}>login</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   render() {
+    const {user, confirmResult} = this.state;
     return (
-      <SafeAreaView style={[styles.container, {backgroundColor: '#333'}]}>
-        <View style={styles.page}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Phone Number with country code"
-            placeholderTextColor="#eee"
-            keyboardType="phone-pad"
-            value={this.state.phone}
-            onChangeText={(phone) => {
-              this.setState({phone});
-            }}
-            maxLength={15}
-            editable={this.state.confirmResult ? false : true}
-          />
+      <View style={{flex: 1}}>
+        {!user && !confirmResult && this.renderPhoneNumberInput()}
 
-          <TouchableOpacity
-            style={[styles.themeButton, {marginTop: 20}]}
-            onPress={
-              this.state.confirmResult
-                ? this.changePhoneNumber
-                : this.handleSendCode
-            }>
-            <Text style={styles.themeButtonTitle}>
-              {this.state.confirmResult ? 'Change Phone Number' : 'Send Code'}
-            </Text>
-          </TouchableOpacity>
+        {this.renderMessage()}
 
-          {this.state.confirmResult ? this.renderConfirmationCodeView() : null}
-        </View>
-      </SafeAreaView>
+        {!user && confirmResult && this.renderVerificationotpInput()}
+
+        {user && (
+          <View style={styles.container}>
+            <Image source={{uri: successImageUri}} style={styles.image} />
+            <Text style={{fontSize: 25}}>Signed In!</Text>
+            <Text>{JSON.stringify(user)}</Text>
+            <Button title="Sign Out" color="red" onPress={this.signOut} />
+          </View>
+        )}
+      </View>
     );
   }
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    // backgroundColor: '#aaa',
-  },
-  page: {
-    flex: 1,
-    alignItems: 'center',
+    padding: 15,
     justifyContent: 'center',
-  },
-  textInput: {
-    marginTop: 20,
-    width: '90%',
-    borderColor: '#555',
-    borderWidth: 2,
-    borderRadius: 5,
-    paddingLeft: 10,
-    color: '#fff',
-    fontSize: 16,
-  },
-  themeButton: {
-    width: '90%',
-    height: 50,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#888',
-    borderColor: '#555',
-    borderWidth: 2,
-    borderRadius: 5,
-  },
-  themeButtonTitle: {
-    color: '#fff',
-  },
-  verificationView: {
+    backgroundColor: '#ffffff',
+    flex: 1,
+    height: '100%',
     width: '100%',
-    alignItems: 'center',
-    marginTop: 50,
+    position: 'absolute',
+    zIndex: -1,
+  },
+  image: {
+    width: 100,
+    height: 100,
+    marginBottom: 25,
+  },
+  msg: {
+    padding: 5,
+    backgroundColor: '#000',
+    color: '#fff',
+  },
+  phoneinput: {
+    width: '80%',
+    height: 40,
+    marginTop: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+  },
+
+  resendBtn: {
+    marginTop: 5,
+    backgroundColor: 'green',
+    height: 35,
+    width: 120,
+    justifyContent: 'center',
+    borderRadius: 50,
+  },
+  resendotp: {
+    color: 'white',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
